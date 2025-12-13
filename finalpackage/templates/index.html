@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Robot AI Phát Hiện Kim Loại</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+  <style>
+    /* ... (YOUR ORIGINAL CSS - PRESERVED) ... */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e8f4fc;
+      min-height: 100vh;
+      color: #1a3a5c;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1e4976 0%, #2d5a87 100%);
+      padding: 15px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .logo {
+      width: 50px;
+      height: 50px;
+      background: white;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .header-title h1 {
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+
+    .header-title p {
+      font-size: 0.75rem;
+      opacity: 0.9;
+    }
+
+    .header-right {
+      text-align: right;
+      font-size: 0.85rem;
+    }
+
+    .header-right .name {
+      font-weight: bold;
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      padding: 20px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 900px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      color: #1e4976;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .camera-stats {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .stat-box {
+      background: #f5f7fa;
+      padding: 12px 25px;
+      border-radius: 8px;
+      text-align: center;
+      flex: 1;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #1e4976;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    /* UPDATED CAMERA VIEW STYLE */
+    .camera-view {
+      background: #000;
+      border-radius: 10px;
+      height: 400px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .camera-view img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .status-badge {
+      background: #e8f4fc;
+      color: #1e4976;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+    }
+
+    .status-badge.disconnected {
+      background: #ffe5e5;
+      color: #c00;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 50px);
+      grid-template-rows: repeat(3, 50px);
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+
+    .ctrl-btn {
+      background: #f0f4f8;
+      border: 1px solid #d0dae5;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1e4976;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .ctrl-btn:active,
+    .ctrl-btn.active {
+      background: #1e4976;
+      color: white;
+    }
+
+    .ctrl-btn.stop {
+      background: #dc3545;
+      color: white;
+      border-color: #dc3545;
+    }
+
+    .ctrl-btn.stop:active {
+      background: #a71d2a;
+    }
+
+    .ctrl-btn.empty {
+      visibility: hidden;
+    }
+
+    .emergency-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+      border: none;
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .connect-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #1e4976, #2d5a87);
+      border: none;
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .detection-log {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.75rem;
+      color: #666;
+      max-height: 120px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+
+    .log-entry {
+      margin-bottom: 6px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .ip-input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .ip-input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #d0dae5;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .ip-input:focus {
+      border-color: #1e4976;
+      box-shadow: 0 0 0 2px rgba(30, 73, 118, 0.1);
+    }
+
+    .ip-connect-btn {
+      background: linear-gradient(135deg, #1e4976, #2d5a87);
+      border: none;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .ip-connect-btn:hover {
+      opacity: 0.9;
+    }
+
+    .ip-connect-btn.connected {
+      background: linear-gradient(135deg, #28a745, #20c997);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <img src="/static/logo.png" alt="Logo" onerror="this.style.display='none'">
+      </div>
+      <div class="header-title">
+        <h1>HỆ THỐNG ROBOT AI PHÁT HIỆN KIM LOẠI</h1>
+        <p>Khoa Điện - Điện tử • Trường ĐH Sư phạm Kỹ thuật TP.HCM</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="name">Vũ Quang Huy - 21161318</div>
+      <div class="name">Nguyễn Việt Anh - 21161282</div>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <div class="left-column">
+      <div class="card">
+        <div class="card-header">
+          <span>📹 Camera AI Stream (YOLOv8)</span>
+          <span class="status-badge disconnected" id="robotStatusBadge">Robot: Disconnected</span>
+        </div>
+        <div class="camera-stats">
+          <div class="stat-box">
+            <div class="stat-value" id="fpsValue">30</div>
+            <div class="stat-label">FPS Target</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="detectionStatus">Scanning...</div>
+            <div class="stat-label">TRẠNG THÁI AI</div>
+          </div>
+        </div>
+        <div class="ip-input-group" style="margin-bottom: 10px;">
+          <input type="text" id="cameraIpInput" class="ip-input" placeholder="Nhập IP Camera (vd: 192.168.1.100)"
+            value="192.168.2.212">
+          <button id="btnCameraConnect" class="ip-connect-btn">📷 Kết nối</button>
+        </div>
+        <div class="camera-view">
+          <img id="cameraFeed" src="{{ url_for('video_feed') }}" alt="Waiting for Camera...">
+        </div>
+      </div>
+    </div>
+
+    <div class="right-column">
+      <div class="card">
+        <div class="card-header">
+          <span>🤖 Kết nối Robot</span>
+        </div>
+        <div class="ip-input-group">
+          <input type="text" id="robotIpInput" class="ip-input" placeholder="Nhập IP Robot (vd: 192.168.1.100)"
+            value="192.168.2.1">
+          <button id="btnConnect" class="ip-connect-btn">🔌 Kết nối</button>
+        </div>
+        <div class="card-header" style="margin-top: 10px;">
+          <span>⚙️ Điều Khiển</span>
+        </div>
+        <div class="control-grid">
+          <div class="ctrl-btn empty"></div>
+          <div class="ctrl-btn" id="btnUp" data-cmd="FORWARD">▲</div>
+          <div class="ctrl-btn empty"></div>
+          <div class="ctrl-btn" id="btnLeft" data-cmd="RIGHT">◀</div>
+          <div class="ctrl-btn stop" id="btnStop" data-cmd="STOP">■</div>
+          <div class="ctrl-btn" id="btnRight" data-cmd="LEFT">▶</div>
+          <div class="ctrl-btn empty"></div>
+          <div class="ctrl-btn" id="btnDown" data-cmd="BACKWARD">▼</div>
+          <div class="ctrl-btn empty"></div>
+        </div>
+        <button class="connect-btn" id="btnNavStart" style="background: linear-gradient(135deg, #28a745, #20c997);">🚗
+          CHẾ ĐỘ TỰ LÁI</button>
+        <button class="emergency-btn" id="emergencyBtn" style="margin-top: 10px;">⚠️ DỪNG KHẨN CẤP</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span>🔍 Kết quả Dò tìm</span>
+          <span class="status-badge" style="background:#28a745; color:white;" id="metalCount">0</span>
+        </div>
+        <div class="detection-log" id="detectionLog">
+          <div class="log-entry">Hệ thống đã khởi động...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====================================================
+    // CONFIGURATION
+    // ====================================================
+    let ESP32_ROBOT_IP = localStorage.getItem('robotIP') || "192.168.2.1";
+
+    // Set saved IP in input field
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('robotIpInput').value = ESP32_ROBOT_IP;
+    });
+
+    // ====================================================
+    // 1. Connect to Python Backend (Flask) for AI Camera
+    // ====================================================
+    const socket = io();
+    let metalCount = 0;
+
+    // ====================================================
+    // 2. Connect to ESP32 Robot via WebSocket
+    // ====================================================
+    let robotWS = null;
+    let robotConnected = false;
+    let pingInterval = null;
+
+    function connectToESP32() {
+      if (robotWS && robotWS.readyState === WebSocket.OPEN) return;
+
+      addLog(`🔌 Đang kết nối tới Robot ESP32: ${ESP32_ROBOT_IP}...`);
+      updateRobotBadge('connecting');
+
+      try {
+        robotWS = new WebSocket(`ws://${ESP32_ROBOT_IP}/ws`);
+
+        robotWS.onopen = () => {
+          robotConnected = true;
+          addLog('✅ Kết nối thành công tới Robot ESP32!');
+          updateRobotBadge('connected');
+
+          // Heartbeat ping every 3 seconds
+          if (pingInterval) clearInterval(pingInterval);
+          pingInterval = setInterval(() => {
+            if (robotWS && robotWS.readyState === WebSocket.OPEN) {
+              robotWS.send('PING');
+            }
+          }, 3000);
+        };
+
+        robotWS.onclose = () => {
+          robotConnected = false;
+          addLog('⚠️ Mất kết nối tới Robot ESP32');
+          updateRobotBadge('disconnected');
+          if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+          // Auto-reconnect after 3 seconds
+          setTimeout(connectToESP32, 3000);
+        };
+
+        robotWS.onerror = (err) => {
+          console.error('ESP32 WebSocket Error:', err);
+          addLog('❌ Lỗi kết nối ESP32');
+        };
+
+        robotWS.onmessage = (event) => {
+          handleESP32Message(event.data);
+        };
+
+      } catch (err) {
+        console.error('Connection error:', err);
+        addLog('❌ Không thể kết nối ESP32');
+        setTimeout(connectToESP32, 3000);
+      }
+    }
+
+    function handleESP32Message(msg) {
+      console.log('ESP32:', msg);
+
+      if (msg === 'PONG') return; // Heartbeat
+
+      if (msg.startsWith('ACK:')) {
+        // Command acknowledged
+        return;
+      }
+
+      if (msg.startsWith('STATUS:')) {
+        addLog(`📊 Robot: ${msg.substring(7)}`);
+        return;
+      }
+
+      if (msg.startsWith('SIGNAL:')) {
+        const parts = msg.split(':');
+        if (parts.length >= 3) {
+          console.log(`Signal: ${parts[1]} (${parts[2]} dBm)`);
+        }
+        return;
+      }
+
+      if (msg.startsWith('DIST:')) {
+        // Distance reading from ultrasonic
+        return;
+      }
+
+      if (msg.startsWith('NAV:')) {
+        const status = msg.substring(4);
+        const statusDiv = document.getElementById('detectionStatus');
+        switch (status) {
+          case 'ACTIVE':
+            addLog('🚗 Chế độ Tự lái đã kích hoạt');
+            statusDiv.textContent = "🚗 TỰ LÁI";
+            statusDiv.style.color = "#28a745";
+            break;
+          case 'STOPPED':
+            addLog('🛑 Đã dừng Tự lái');
+            statusDiv.textContent = "Scanning...";
+            statusDiv.style.color = "#1e4976";
+            break;
+          case 'CALIBRATING':
+            addLog('🧭 Đang hiệu chỉnh la bàn...');
+            statusDiv.textContent = "⏳ CALIBRATING";
+            break;
+          case 'OBSTACLE':
+            addLog('⚠️ Phát hiện vật cản!');
+            statusDiv.textContent = "⚠️ VẬT CẢN";
+            statusDiv.style.color = "#dc3545";
+            break;
+          case 'TURNING':
+          case 'TURN_90':
+            addLog('↩️ Đang quay...');
+            break;
+        }
+        return;
+      }
+
+      if (msg.startsWith('TIMEOUT:')) {
+        addLog(`⚠️ Timeout: ${msg.substring(8)}`);
+        return;
+      }
+    }
+
+    function updateRobotBadge(status) {
+      const badge = document.getElementById('robotStatusBadge');
+      if (status === 'connected') {
+        badge.className = 'status-badge';
+        badge.style.background = '#d4edda';
+        badge.style.color = '#155724';
+        badge.textContent = 'Robot: Connected';
+        updateConnectButton(true);
+      } else if (status === 'connecting') {
+        badge.className = 'status-badge';
+        badge.style.background = '#fff3cd';
+        badge.style.color = '#856404';
+        badge.textContent = 'Robot: Connecting...';
+        updateConnectButton(false);
+      } else {
+        badge.className = 'status-badge disconnected';
+        badge.textContent = 'Robot: Disconnected';
+        updateConnectButton(false);
+      }
+    }
+
+    // Update Connect button appearance
+    function updateConnectButton(connected) {
+      const btn = document.getElementById('btnConnect');
+      if (connected) {
+        btn.classList.add('connected');
+        btn.textContent = '✅ Đã kết nối';
+      } else {
+        btn.classList.remove('connected');
+        btn.textContent = '🔌 Kết nối';
+      }
+    }
+
+    // ====================================================
+    // LOGGING
+    // ====================================================
+    function addLog(text) {
+      const now = new Date();
+      const time = now.toLocaleTimeString();
+      const logDiv = document.getElementById('detectionLog');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<strong>${time}</strong> - ${text}`;
+      logDiv.insertBefore(entry, logDiv.firstChild);
+      // Keep max 30 entries
+      while (logDiv.children.length > 30) logDiv.removeChild(logDiv.lastChild);
+    }
+
+    // ====================================================
+    // Flask Socket.IO Handlers (for AI Camera)
+    // ====================================================
+    socket.on('connect', () => {
+      addLog('📷 Kết nối thành công tới AI Camera Server');
+    });
+
+    socket.on('disconnect', () => {
+      addLog('⚠️ Mất kết nối tới AI Camera Server');
+    });
+
+    socket.on('metal_alert', (data) => {
+      if (data.detected) {
+        const className = data.class || 'Đối tượng';
+        const confidence = data.confidence || 0;
+
+        // Only show notification if confidence >= 90%
+        if (confidence >= 90) {
+          metalCount++;
+          document.getElementById('metalCount').textContent = metalCount;
+          document.getElementById('detectionStatus').textContent = "⚠️ PHÁT HIỆN!";
+          document.getElementById('detectionStatus').style.color = "red";
+          addLog(`⚠️ Phát hiện: ${className} (${confidence}%)`);
+
+          setTimeout(() => {
+            document.getElementById('detectionStatus').textContent = "Scanning...";
+            document.getElementById('detectionStatus').style.color = "#1e4976";
+          }, 2000);
+        }
+      }
+    });
+
+    // ====================================================
+    // COMMAND SENDING - Direct to ESP32
+    // ====================================================
+    function sendCmd(cmd) {
+      console.log("Sending to ESP32:", cmd);
+      if (robotWS && robotWS.readyState === WebSocket.OPEN) {
+        robotWS.send(cmd);
+      } else {
+        addLog('❌ Robot chưa kết nối!');
+      }
+    }
+
+    // ====================================================
+    // UI EVENT HANDLERS
+    // ====================================================
+    document.querySelectorAll('.ctrl-btn[data-cmd]').forEach(btn => {
+      const cmd = btn.dataset.cmd;
+      const start = (e) => { e.preventDefault(); btn.classList.add('active'); sendCmd(cmd); };
+      const end = (e) => { e.preventDefault(); btn.classList.remove('active'); if (cmd !== 'STOP') sendCmd('STOP'); };
+
+      btn.addEventListener('mousedown', start);
+      btn.addEventListener('mouseup', end);
+      btn.addEventListener('mouseleave', end);
+      btn.addEventListener('touchstart', start);
+      btn.addEventListener('touchend', end);
+    });
+
+    document.getElementById('emergencyBtn').addEventListener('click', () => {
+      sendCmd('STOP');
+      addLog('🔴 DỪNG KHẨN CẤP');
+    });
+
+    document.getElementById('btnNavStart').addEventListener('click', () => {
+      sendCmd('NAV_START');
+      addLog('🚗 Kích hoạt chế độ Tự lái');
+    });
+
+    // Keyboard Support
+    document.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      if (e.key === 'ArrowUp' || e.key === 'w') sendCmd('FORWARD');
+      if (e.key === 'ArrowDown' || e.key === 's') sendCmd('BACKWARD');
+      if (e.key === 'ArrowLeft' || e.key === 'a') sendCmd('LEFT');
+      if (e.key === 'ArrowRight' || e.key === 'd') sendCmd('RIGHT');
+      if (e.key === ' ') sendCmd('STOP');
+    });
+    document.addEventListener('keyup', (e) => {
+      const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'];
+      if (keys.includes(e.key)) sendCmd('STOP');
+    });
+
+    // ====================================================
+    // INITIALIZE
+    // ====================================================
+    window.addEventListener('load', () => {
+      addLog('🚀 Hệ thống khởi động...');
+      addLog('📝 Nhập IP Robot và nhấn Kết nối');
+    });
+
+    // Connect button handler
+    document.getElementById('btnConnect').addEventListener('click', () => {
+      const ipInput = document.getElementById('robotIpInput');
+      const newIP = ipInput.value.trim();
+
+      if (!newIP) {
+        addLog('❌ Vui lòng nhập địa chỉ IP!');
+        return;
+      }
+
+      // Validate IP format (basic check)
+      if (!/^[\d.]+$/.test(newIP)) {
+        addLog('❌ Địa chỉ IP không hợp lệ!');
+        return;
+      }
+
+      // Close existing connection if any
+      if (robotWS) {
+        robotWS.onclose = null; // Prevent auto-reconnect
+        robotWS.close();
+        robotWS = null;
+      }
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+
+      // Update IP and save to localStorage
+      ESP32_ROBOT_IP = newIP;
+      localStorage.setItem('robotIP', newIP);
+
+      // Connect with new IP
+      connectToESP32();
+    });
+
+    // ====================================================
+    // CAMERA IP CONNECT HANDLER
+    // ====================================================
+    // Set saved camera IP on load
+    const savedCameraIP = localStorage.getItem('cameraIP');
+    if (savedCameraIP) {
+      document.getElementById('cameraIpInput').value = savedCameraIP;
+    }
+
+    // Camera connect button
+    document.getElementById('btnCameraConnect').addEventListener('click', () => {
+      const ipInput = document.getElementById('cameraIpInput');
+      const newIP = ipInput.value.trim();
+
+      if (!newIP) {
+        addLog('❌ Vui lòng nhập địa chỉ IP Camera!');
+        return;
+      }
+
+      if (!/^[\d.]+$/.test(newIP)) {
+        addLog('❌ Địa chỉ IP Camera không hợp lệ!');
+        return;
+      }
+
+      // Save to localStorage
+      localStorage.setItem('cameraIP', newIP);
+
+      // Send to backend via Socket.IO
+      socket.emit('set_camera_ip', { ip: newIP });
+      addLog(`📷 Đang kết nối tới Camera: ${newIP}...`);
+
+      // Refresh the video feed
+      setTimeout(() => {
+        const feed = document.getElementById('cameraFeed');
+        feed.src = '/video_feed?' + Date.now();
+      }, 1000);
+    });
+
+    // Handle camera status from server
+    socket.on('camera_status', (data) => {
+      if (data.status === 'success') {
+        addLog(`✅ Camera đã kết nối: ${data.ip}`);
+      } else {
+        addLog(`❌ Lỗi Camera: ${data.message}`);
+      }
+    });
+
+    // Receive current camera IP on connect
+    socket.on('camera_ip', (data) => {
+      if (data.ip) {
+        document.getElementById('cameraIpInput').value = data.ip;
+      }
+    });
+
+  </script>
+</body>
+
+</html>
